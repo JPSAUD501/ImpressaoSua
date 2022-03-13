@@ -5,7 +5,7 @@
 ![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white)
 ![ESLint](https://img.shields.io/badge/ESLint-4B3263?style=for-the-badge&logo=eslint&logoColor=white)
 
-A [Telegram](https://telegram.org/) bot using [Telegraf.js](https://github.com/telegraf/telegraf) as API for Node.js and [Node-lp](https://github.com/tomgco/node-lp) to physically print files from anywhere in the world!
+A [Telegram](https://telegram.org/) bot using [Telegraf.js](https://github.com/telegraf/telegraf) as API for Node.js and [Node-Cmd](https://github.com/RIAEvangelist/node-cmd) using [lp(1)](http://www.cups.org/doc/man-lp.html) command to physically print files from anywhere in the world!
 
 ___
 

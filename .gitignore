@@ -1,5 +1,5 @@
 *.env
 *.log
-pdfTemp
+AllFiles
 authorizedChatIds.json
 node_modules

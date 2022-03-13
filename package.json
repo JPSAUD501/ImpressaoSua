@@ -11,8 +11,9 @@
     "dotenv": "^16.0.0",
     "fs": "^0.0.1-security",
     "html-pdf-node": "^1.0.8",
-    "node-lp": "^1.0.2",
-    "telegraf": "^4.7.0"
+    "node-cmd": "^5.0.0",
+    "telegraf": "^4.7.0",
+    "yaml": "^1.10.2"
   },
   "scripts": {
     "start": "node index.js"

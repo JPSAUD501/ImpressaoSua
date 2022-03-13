@@ -1,24 +1,35 @@
 require('dotenv').config()
-const lp = require('node-lp')
 const { Telegraf, Markup } = require('telegraf')
 const fs = require('fs')
 const html2Pdf = require('html-pdf-node')
 const axios = require('axios')
 const stream = require('stream')
 const { promisify } = require('util')
+const cmd = require('node-cmd')
+const YAML = require('yaml')
 
 const finished = promisify(stream.finished)
 
+const dbPath = './AllFiles'
 const html2PdfOptions = { format: 'A4', pageRanges: '1' }
-
-const daysArray = [7, 0, 1, 2, 3, 4, 5, 6]
 
 const bot = new Telegraf(process.env.BOT_TOKEN)
 
-const printer = lp({})
+function log (...txt) {
+  console.log(`[${new Date().toLocaleString('pt-BR')}]`, ...txt)
+}
 
-function log (txt) {
-  console.log(`[${new Date().toLocaleString()}]`, txt)
+async function print (filePath) {
+  return new Promise((resolve, reject) => {
+    cmd.run(`lp ${filePath}`, function (err, data, stderr) {
+      if (err) {
+        log(err)
+        reject(err)
+      }
+      log(data)
+      resolve(data)
+    })
+  })
 }
 
 function checkChatIdAuthorized (chatId) {
@@ -47,12 +58,11 @@ async function sendImagePrintRequest (ctx, msgLog, photoFileId) {
     const photoUrl = await ctx.telegram.getFileLink(photoFileId).catch((err) => { log(err) }).then((link) => link.href)
     log(photoUrl)
     const date = new Date()
-    for (let i = 1; i <= 7; i++) if ((date.getDay() !== daysArray[i]) && (date.getDay() !== daysArray[i] + 1) && (fs.existsSync(`./pdfTemp/${daysArray[i]}`))) fs.rmSync(`./pdfTemp/${daysArray[i]}`, { recursive: true })
-    const id = `${date.getDay()}-${ctx.message.chat.id.toString().replace('-', 'G')}-${ctx.message.message_id}`
+    const id = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}-${ctx.message.chat.id.toString().replace('-', 'G')}-${ctx.message.message_id}`
     const idArray = id.split('-')
-    const dir = `./pdfTemp/${idArray[0]}/${idArray[1]}/${idArray[2]}`
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    bot.telegram.editMessageText(msgLog.chat.id, msgLog.message_id, null, '(🔁) Gerando PDF! Aguarde...', { parse_mode: 'HTML', reply_to_message_id: ctx.update.message.message_id })
+    const dir = `${dbPath}/${idArray.join('/')}`
+    if (!fs.existsSync(`${dir}`)) fs.mkdirSync(`${dir}`, { recursive: true })
+    bot.telegram.editMessageText(msgLog.chat.id, msgLog.message_id, null, '(🔁) Gerando PDF! Aguarde...', { parse_mode: 'HTML', reply_to_message_id: ctx.update.message.message_id }).catch((err) => { log(err) })
     const html = {
       content: `
             <html>
@@ -124,7 +134,7 @@ async function sendImagePrintRequest (ctx, msgLog, photoFileId) {
             <body>
                 <div class="flex-container" id="page">
                     <div id="log">
-                        <h1>(${date.toLocaleString()}) --- (ID: ${id})</h1>
+                        <h1>(${date.toLocaleString('pt-BR')}) --- (ID: ${id})</h1>
                     </div>
                     <div id="image">
                         <img src="${photoUrl}" />
@@ -138,14 +148,27 @@ async function sendImagePrintRequest (ctx, msgLog, photoFileId) {
     const pdfBuffer = await html2Pdf.generatePdf(html, html2PdfOptions).then((pdfBuffer) => pdfBuffer).catch((err) => { log(err) })
     const pdf = Buffer.from(pdfBuffer, 'base64')
     fs.writeFileSync(`${dir}/print.pdf`, pdf)
+    const fileDataJson = {
+      FileId: idArray.join('-'),
+      Created: {
+        Date: date.toLocaleString('pt-BR'),
+        Unix: date.getTime()
+      },
+      Updated: {
+        Date: date.toLocaleString('pt-BR'),
+        Unix: date.getTime()
+      },
+      TimesPrinted: 0
+    }
+    fs.writeFileSync(`${dir}/info.yaml`, YAML.stringify(fileDataJson))
     const pdfMsg = await bot.telegram.sendDocument(ctx.message.chat.id, { source: `${dir}/print.pdf`, filename: 'print.pdf' }, { caption: `ID: ${id}`, reply_to_message_id: ctx.message.message_id }).catch((err) => { log(err) })
     bot.telegram.deleteMessage(msgLog.chat.id, msgLog.message_id).catch((err) => { log(err) })
     await ctx.telegram.sendMessage(pdfMsg.chat.id, 'Deseja imprimir o PDF?', {
       parse_mode: 'Markdown',
       reply_to_message_id: pdfMsg.message_id,
       ...Markup.inlineKeyboard([
-        Markup.button.callback('(🖨) Imprimir', `print-${id}`),
-        Markup.button.callback('(❌) Não imprimir', `cancel-${id}`)
+        Markup.button.callback('(🖨) Imprimir', `print-${idArray.join('-')}`),
+        Markup.button.callback('(❌) Não imprimir', `cancel-${idArray.join('-')}`)
       ])
     }).catch((err) => { log(err) })
   } catch (err) { log(err) }
@@ -156,14 +179,26 @@ async function sendPdfPrintRequest (ctx, msgLog, photoFileId) {
     const pdfUrl = await ctx.telegram.getFileLink(photoFileId).catch((err) => { log(err) }).then((link) => link.href)
     log(pdfUrl)
     const date = new Date()
-    for (let i = 1; i <= 7; i++) if ((date.getDay() !== daysArray[i]) && (date.getDay() !== daysArray[i] + 1) && (fs.existsSync(`./pdfTemp/${daysArray[i]}`))) fs.rmSync(`./pdfTemp/${daysArray[i]}`, { recursive: true })
-    const id = `${date.getDay()}-${ctx.message.chat.id.toString().replace('-', 'G')}-${ctx.message.message_id}`
+    const id = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}-${ctx.message.chat.id.toString().replace('-', 'G')}-${ctx.message.message_id}`
     const idArray = id.split('-')
-    const dir = `./pdfTemp/${idArray[0]}/${idArray[1]}/${idArray[2]}`
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    const dir = `${dbPath}/${idArray.join('/')}`
+    if (!fs.existsSync(`${dir}`)) fs.mkdirSync(`${dir}`, { recursive: true })
     bot.telegram.editMessageText(msgLog.chat.id, msgLog.message_id, null, '(🧡) Salvando PDF! Aguarde...', { parse_mode: 'HTML', reply_to_message_id: ctx.update.message.message_id })
     await downloadFile(pdfUrl, `${dir}/print.pdf`).catch((err) => { log(err) })
     if (!fs.existsSync(`${dir}/print.pdf`)) return bot.telegram.editMessageText(msgLog.chat.id, msgLog.message_id, null, '(❌) Erro no donwload do arquivo!', { parse_mode: 'HTML', reply_to_message_id: ctx.update.message.message_id })
+    const fileDataJson = {
+      FileId: idArray.join('-'),
+      Created: {
+        Date: date.toLocaleString('pt-BR'),
+        Unix: date.getTime()
+      },
+      Updated: {
+        Date: date.toLocaleString('pt-BR'),
+        Unix: date.getTime()
+      },
+      TimesPrinted: 0
+    }
+    fs.writeFileSync(`${dir}/info.yaml`, YAML.stringify(fileDataJson))
     const pdfMsg = await bot.telegram.sendDocument(ctx.message.chat.id, { source: `${dir}/print.pdf`, filename: 'print.pdf' }, { caption: `ID: ${id}`, reply_to_message_id: ctx.message.message_id }).catch((err) => { log(err) })
     bot.telegram.deleteMessage(msgLog.chat.id, msgLog.message_id).catch((err) => { log(err) })
     await ctx.telegram.sendMessage(pdfMsg.chat.id, 'Deseja imprimir o PDF?', {
@@ -190,7 +225,6 @@ bot.on('document', async (ctx) => {
     } else if (ctx.message.document.mime_type === 'application/pdf') {
       const msgLog = await ctx.reply('(👍) PDF recebido!', { parse_mode: 'HTML', reply_to_message_id: ctx.update.message.message_id }).catch((err) => { log(err) })
       const pdfFileId = ctx.message.document.file_id
-      // ...Donwload pdf and save in the folder like image with ids
       await sendPdfPrintRequest(ctx, msgLog, pdfFileId)
     }
   } catch (err) { log(err) }
@@ -211,24 +245,52 @@ bot.action(/print-/gi, async (ctx) => {
     if (!checkChatIdAuthorized(ctx.update.callback_query.message.chat.id.toString().replace('-', 'G'))) return
     const idArray = ctx.match.input.split('-')
     idArray.shift()
-    log(idArray)
-    if (!fs.existsSync(`./pdfTemp/${idArray[0]}/${idArray[1]}/${idArray[2]}/print.pdf`)) return ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(❌) O arquivo não foi encontrado na base de dados! Por favor reenvie-o para tentar imprimir!', { parse_mode: 'HTML' }).catch((err) => { log(err) })
+    const dir = `${dbPath}/${idArray.join('/')}`
+    idArray.shift()
+    log('Printing:', idArray)
+    if (!fs.existsSync(`${dir}/print.pdf`)) return ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(❌) O arquivo não foi encontrado no banco de dados! Por favor reenvie-o para tentar imprimir!', { parse_mode: 'HTML' }).catch((err) => { log(err) })
     await ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(🖨) Prerando impressão...', { parse_mode: 'HTML' }).catch((err) => { log(err) })
-    fs.writeFileSync(`./pdfTemp/${idArray[0]}/${idArray[1]}/${idArray[2]}/printed.txt`, `${new Date().toLocaleString()}`)
-    printer.queue(`./pdfTemp/${idArray[0]}/${idArray[1]}/${idArray[2]}/print.pdf`, (err, jobId) => {
-      if (err) {
-        log(err)
-        return ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(❌) Erro ao imprimir arquivo! Por favor reenvie-o para tentar novamente!', { parse_mode: 'HTML' }).catch((err) => { log(err) })
+    if (fs.existsSync(`${dir}/info.yaml`)) {
+      const fileDataJson = YAML.parse(fs.readFileSync(`${dir}/info.yaml`, 'utf8'))
+
+      fileDataJson.LastPrinted = new Date().toLocaleString('pt-BR')
+
+      if (!fileDataJson.TimesPrinted) {
+        fileDataJson.TimesPrinted = 1
+      } else {
+        fileDataJson.TimesPrinted = fileDataJson.TimesPrinted + 1
       }
-      log(jobId)
-      ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(✅) O arquivo foi para impressão com sucesso!', {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          Markup.button.callback('(🖨) Imprimir novamente', `print-${idArray.join('-')}`),
-          Markup.button.callback('(❌) Não imprimir', `cancel-${idArray.join('-')}`)
-        ])
-      }).catch((err) => { log(err) })
+
+      if (!fileDataJson.PrintedDates) {
+        fileDataJson.PrintedDates = [new Date().toLocaleString('pt-BR')]
+      } else {
+        fileDataJson.PrintedDates.push(new Date().toLocaleString('pt-BR'))
+      }
+
+      fs.writeFileSync(`${dir}/info.yaml`, YAML.stringify(fileDataJson))
+    } else {
+      const fileDataJson = {
+        Updated: {
+          Date: new Date().toLocaleString('pt-BR'),
+          Unix: new Date().getTime()
+        },
+        TimesPrinted: 1,
+        PrintedDates: [new Date().toLocaleString('pt-BR')],
+        LastPrinted: new Date().toLocaleString('pt-BR')
+      }
+      fs.writeFileSync(`${dir}/info.yaml`, YAML.stringify(fileDataJson))
+    }
+    print(`${dir}/print.pdf`).catch((err) => {
+      log(err)
+      return ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(❌) Erro ao imprimir arquivo! Por favor reenvie-o para tentar novamente!', { parse_mode: 'HTML' }).catch((err) => { log(err) })
     })
+    ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(✅) O arquivo foi para impressão com sucesso!', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        Markup.button.callback('(🖨) Imprimir novamente', `print-${idArray.join('-')}`),
+        Markup.button.callback('(❌) Não imprimir', `cancel-${idArray.join('-')}`)
+      ])
+    }).catch((err) => { log(err) })
   } catch (err) { log(err) }
 })
 
@@ -237,18 +299,36 @@ bot.action(/cancel-/gi, async (ctx) => {
     if (!checkChatIdAuthorized(ctx.update.callback_query.message.chat.id.toString().replace('-', 'G'))) return
     const idArray = ctx.match.input.split('-')
     idArray.shift()
-    log(idArray)
-    if (fs.existsSync(`./pdfTemp/${idArray[0]}/${idArray[1]}/${idArray[2]}/printed.txt`)) {
-      return ctx.telegram.editMessageText(
-        ctx.update.callback_query.message.chat.id,
-        ctx.update.callback_query.message.message_id,
-        null,
-        `(❌) O arquivo de ID (${idArray[0]}-${idArray[1]}-${idArray[2]}) já foi impresso em ${fs.readFileSync(`./pdfTemp/${idArray[0]}/${idArray[1]}/${idArray[2]}/printed.txt`).toString().replace(',', ' as')}`,
+    const dir = `${dbPath}/${idArray.join('/')}`
+    idArray.shift()
+    log('Canceling:', idArray)
+    if (fs.existsSync(`${dir}/info.yaml`)) {
+      const fileDataJson = YAML.parse(fs.readFileSync(`${dir}/info.yaml`, 'utf8'))
+      if (!fileDataJson.TimesPrinted) {
+        fileDataJson.TimesPrinted = 0
+        fs.writeFileSync(`${dir}/info.yaml`, YAML.stringify(fileDataJson))
+      }
+      if (fileDataJson.TimesPrinted <= 0) {
+        if (fs.existsSync(`${dir}`)) fs.rmSync(`${dir}`, { recursive: true })
+        return ctx.telegram.editMessageText(
+          ctx.update.callback_query.message.chat.id,
+          ctx.update.callback_query.message.message_id,
+          null,
+          '(💢) Ok! O arquivo não será impresso e já foi deletado do banco de dados!',
+          { parse_mode: 'HTML' }
+        ).catch((err) => { log(err) })
+      } else {
+        return ctx.telegram.editMessageText(
+          ctx.update.callback_query.message.chat.id,
+          ctx.update.callback_query.message.message_id,
+          null,
+        `(💢) Ok! O arquivo não será impresso novamente! Numero de copias impressas: ${fileDataJson.TimesPrinted}`,
         { parse_mode: 'HTML' }
-      ).catch((err) => { log(err) })
+        ).catch((err) => { log(err) })
+      }
     }
+    if (fs.existsSync(`${dir}`)) fs.rmSync(`${dir}`, { recursive: true })
     await ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(💢) Ok! O arquivo não será impresso!', { parse_mode: 'HTML' }).catch((err) => { log(err) })
-    if (fs.existsSync(`./pdfTemp/${idArray[0]}/${idArray[1]}/${idArray[2]}`)) fs.rmSync(`./pdfTemp/${idArray[0]}/${idArray[1]}/${idArray[2]}`, { recursive: true })
   } catch (err) { log(err) }
 })
 
