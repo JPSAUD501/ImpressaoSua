@@ -1,0 +1,5 @@
+*.env
+*.log
+pdfTemp
+authorizedChatIds.json
+node_modules
