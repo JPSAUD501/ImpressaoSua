@@ -296,7 +296,7 @@ bot.action(/print-/gi, async (ctx) => {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
         Markup.button.callback(`(🖨) Imprimir ${printedCopies + 1}ª cópia`, `print-${idArray.join('-')}`),
-        Markup.button.callback('(❌) Não imprimir mais', `cancel-${idArray.join('-')}`)
+        Markup.button.callback('(ℹ) Informações', `info-${idArray.join('-')}`)
       ])
     }).catch((err) => { log(err) })
   } catch (err) { log(err) }
@@ -329,13 +329,31 @@ bot.action(/cancel-/gi, async (ctx) => {
           ctx.update.callback_query.message.chat.id,
           ctx.update.callback_query.message.message_id,
           null,
-        `(💢) Ok! O arquivo não será impresso novamente! Numero de copias impressas: ${fileDataJson.TimesPrinted}`,
+        `(💢) Ok! O arquivo não será impresso novamente! Numero de cópias impressas: ${fileDataJson.TimesPrinted}`,
         { parse_mode: 'HTML' }
         ).catch((err) => { log(err) })
       }
     }
     if (fs.existsSync(`${dir}`)) fs.rmSync(`${dir}`, { recursive: true })
     await ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(💢) Ok! O arquivo não será impresso!', { parse_mode: 'HTML' }).catch((err) => { log(err) })
+  } catch (err) { log(err) }
+})
+
+bot.action(/info-/gi, async (ctx) => {
+  try {
+    if (!checkChatIdAuthorized(ctx.update.callback_query.message.chat.id.toString().replace('-', 'G'))) return
+    const idArray = ctx.match.input.split('-')
+    idArray.shift()
+    const dir = `${dbPath}/${idArray.join('/')}`
+    log('Sending info.yaml:', idArray)
+    if (fs.existsSync(`${dir}/info.yaml`)) {
+      const fileDataJson = YAML.parse(fs.readFileSync(`${dir}/info.yaml`, 'utf8'))
+      const fileDataString = fs.readFileSync(`${dir}/info.yaml`, 'utf8')
+      if (!fileDataJson || !fileDataString) return ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(❌) O arquivo de informações não foi encontrado, por favor envie o arquivo novamente!', { parse_mode: 'HTML' }).catch((err) => { log(err) })
+      await bot.telegram.sendDocument(ctx.update.callback_query.message.chat.id, { source: `${dir}/info.yaml`, filename: 'info.yaml' }, { caption: fileDataString, reply_to_message_id: ctx.update.callback_query.message.message_id }).catch((err) => { log(err) })
+    } else {
+      ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(❌) O arquivo de informações não foi encontrado, por favor envie o arquivo novamente!', { parse_mode: 'HTML' }).catch((err) => { log(err) })
+    }
   } catch (err) { log(err) }
 })
 
