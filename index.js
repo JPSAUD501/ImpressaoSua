@@ -188,7 +188,7 @@ async function sendPdfPrintRequest (ctx, msgLog, photoFileId) {
     if (!fs.existsSync(`${dir}`)) fs.mkdirSync(`${dir}`, { recursive: true })
     bot.telegram.editMessageText(msgLog.chat.id, msgLog.message_id, null, '(🧡) Salvando PDF! Aguarde...', { parse_mode: 'HTML', reply_to_message_id: ctx.update.message.message_id })
     await downloadFile(pdfUrl, `${dir}/print.pdf`).catch((err) => { log(err) })
-    if (!fs.existsSync(`${dir}/print.pdf`)) return bot.telegram.editMessageText(msgLog.chat.id, msgLog.message_id, null, '(❌) Erro no donwload do arquivo!', { parse_mode: 'HTML', reply_to_message_id: ctx.update.message.message_id })
+    if (!fs.existsSync(`${dir}/print.pdf`)) return bot.telegram.editMessageText(msgLog.chat.id, msgLog.message_id, null, '(❌) Erro no download do arquivo!', { parse_mode: 'HTML', reply_to_message_id: ctx.update.message.message_id })
     const fileDataJson = {
       FileId: idArray.join('-'),
       Created: {
@@ -251,7 +251,7 @@ bot.action(/print-/gi, async (ctx) => {
     const dir = `${dbPath}/${idArray.join('/')}`
     log('Printing:', idArray)
     if (!fs.existsSync(`${dir}/print.pdf`)) return ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(❌) O arquivo não foi encontrado no banco de dados! Por favor reenvie-o para tentar imprimir!', { parse_mode: 'HTML' }).catch((err) => { log(err) })
-    await ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(🖨) Prerando impressão...', { parse_mode: 'HTML' }).catch((err) => { log(err) })
+    await ctx.telegram.editMessageText(ctx.update.callback_query.message.chat.id, ctx.update.callback_query.message.message_id, null, '(🖨) Preparando impressão...', { parse_mode: 'HTML' }).catch((err) => { log(err) })
     if (fs.existsSync(`${dir}/info.yaml`)) {
       const fileDataJson = YAML.parse(fs.readFileSync(`${dir}/info.yaml`, 'utf8'))
 
