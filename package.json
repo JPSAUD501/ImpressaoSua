@@ -4,7 +4,7 @@
   "description": "Print files sent to Telegram bot.",
   "main": "index.js",
   "author": "João Pedro Saud Cardoso",
-  "license": "MPL-2",
+  "license": "MPL-2.0",
   "private": false,
   "dependencies": {
     "axios": "^0.26.1",
