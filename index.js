@@ -221,6 +221,10 @@ async function sendPdfPrintRequest (ctx, msgLog, photoFileId) {
 
 log('Starting!')
 
+bot.catch(e => {
+  log(e)
+})
+
 bot.on('document', async (ctx) => {
   try {
     if (!checkChatIdAuthorized(ctx.message.chat.id.toString().replace('-', 'G'))) return ctx.reply('(❌) Infelizmente esse chat não está autorizado! Utilize o comando /autorizar (senha) para autoriza-lo!', { parse_mode: 'HTML', reply_to_message_id: ctx.update.message.message_id }).catch((err) => { log(err) })
